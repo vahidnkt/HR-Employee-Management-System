@@ -1,96 +1,119 @@
-import { Injectable, Inject } from '@nestjs/common';
-import type { Repository } from 'sequelize-typescript';
-import { Op } from 'sequelize';
+import {
+  Injectable,
+  Inject,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
 import { Users } from './users.entity';
-import { UpdateUserDto } from './dto/update.user.dto';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { UserResponseDto } from './dto/user-response.dto';
 
 @Injectable()
 export class UsersService {
   constructor(
     @Inject('USERS_REPOSITORY')
-    private usersRepository: Repository<Users>,
+    private readonly usersRepository: typeof Users,
   ) {}
 
-  async create(userData: any): Promise<Users> {
-    return await this.usersRepository.create(userData);
-  }
-
-  async findByEmail(email: string): Promise<Users | null> {
-    return await this.usersRepository.findOne({
-      where: { email },
+  async create(createUserDto: CreateUserDto): Promise<UserResponseDto> {
+    // Check if user already exists
+    const existingUser = await this.usersRepository.findOne({
+      where: { email: createUserDto.email },
     });
+
+    if (existingUser) {
+      throw new ConflictException('User with this email already exists');
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(
+      createUserDto.password,
+      parseInt(process.env.BCRYPT_ROUNDS || '10'),
+    );
+
+    // Create user
+    const user = await this.usersRepository.create({
+      ...createUserDto,
+      password: hashedPassword,
+    });
+
+    return this.toResponseDto(user);
   }
 
-  async findById(id: string): Promise<Users | null> {
-    return await this.usersRepository.findByPk(id);
-  }
+  async findAll(page: number = 1, limit: number = 10): Promise<any> {
+    const offset = (page - 1) * limit;
 
-  async findAll(
-    page: number = 1,
-    take: number = 10,
-    search?: string,
-    role?: string,
-    isActive?: boolean,
-  ) {
-    const offset = (page - 1) * take;
-    const where: any = {};
-
-    if (search) {
-      where[Op.or] = [
-        { userName: { [Op.like]: `%${search}%` } },
-        { email: { [Op.like]: `%${search}%` } },
-      ];
-    }
-
-    if (role) {
-      where.role = role;
-    }
-
-    if (isActive !== undefined) {
-      where.isActive = isActive;
-    }
-
-    const { rows, count } = await this.usersRepository.findAndCountAll({
-      where,
-      limit: take,
-      offset: offset,
-      attributes: { exclude: ['password', 'refreshTokenHash'] },
+    const { count, rows } = await this.usersRepository.findAndCountAll({
+      offset,
+      limit,
       order: [['createdAt', 'DESC']],
     });
 
     return {
-      items: rows,
+      data: rows.map((user) => this.toResponseDto(user)),
       total: count,
-      page: page,
-      take: take,
+      page,
+      limit,
+      pages: Math.ceil(count / limit),
     };
   }
 
-  async update(id: string, updateData: UpdateUserDto): Promise<Users | null> {
-    await this.usersRepository.update(updateData, {
-      where: { id },
-    });
-    return await this.findById(id);
-  }
+  async findById(id: string): Promise<UserResponseDto> {
+    const user = await this.usersRepository.findByPk(id);
 
-  async updateRefreshToken(
-    id: string,
-    tokenHash: string | null,
-  ): Promise<void> {
-    const updateData: any = {};
-    if (tokenHash !== null) {
-      updateData.refreshTokenHash = tokenHash;
-    } else {
-      updateData.refreshTokenHash = null;
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
-    await this.usersRepository.update(updateData, {
-      where: { id },
-    });
+
+    return this.toResponseDto(user);
   }
 
-  async remove(id: string): Promise<void> {
-    await this.usersRepository.destroy({
-      where: { id },
+  async findByEmail(email: string): Promise<Users | null> {
+    const user = await this.usersRepository.findOne({
+      where: { email },
     });
+
+    return user;
+  }
+
+  async update(id: string, updateUserDto: UpdateUserDto): Promise<UserResponseDto> {
+    const user = await this.usersRepository.findByPk(id);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    await user.update(updateUserDto);
+
+    return this.toResponseDto(user);
+  }
+
+  async delete(id: string): Promise<void> {
+    const user = await this.usersRepository.findByPk(id);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    await user.destroy();
+  }
+
+  private toResponseDto(user: Users): UserResponseDto {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      phone: user.phone,
+      whatsappNumber: user.whatsappNumber,
+      avatar: user.avatar,
+      bio: user.bio,
+      role: user.role,
+      isActive: user.isActive,
+      lastLogin: user.lastLogin,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
   }
 }

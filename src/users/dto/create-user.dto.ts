@@ -1,6 +1,6 @@
 import { IsEmail, IsString, MinLength, IsOptional } from 'class-validator';
 
-export class RegisterDto {
+export class CreateUserDto {
   @IsEmail({}, { message: 'Email must be valid' })
   email: string;
 
@@ -19,4 +19,8 @@ export class RegisterDto {
   @IsString()
   @IsOptional()
   whatsappNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  role?: string = 'user';
 }

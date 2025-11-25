@@ -1,56 +1,105 @@
 import {
+  Table,
   Column,
   Model,
-  Table,
-  PrimaryKey,
   DataType,
-  Default,
   Index,
   AllowNull,
   Unique,
+  Default,
+  PrimaryKey,
 } from 'sequelize-typescript';
+import { v4 as uuidv4 } from 'uuid';
 
-@Table({ tableName: 'Users', timestamps: true, paranoid: true })
-export class Users extends Model<Users> {
+@Table({
+  tableName: 'users',
+  timestamps: true,
+  indexes: [
+    { fields: ['email'], unique: true },
+    { fields: ['createdAt'] },
+    { fields: ['isActive'] },
+    { fields: ['role'] },
+    { fields: ['phone'] },
+  ],
+})
+export class Users extends Model {
   @PrimaryKey
-  @Default(DataType.UUIDV4)
-  @Column({ type: DataType.UUID })
+  @Default(() => uuidv4())
+  @Column({
+    type: DataType.UUID,
+  })
   declare id: string;
 
   @AllowNull(false)
   @Unique
-  @Index
-  @Column(DataType.STRING(100))
-  declare userName: string;
+  @Column({
+    type: DataType.STRING(255),
+  })
+  email: string;
 
   @AllowNull(false)
-  @Unique
-  @Index
-  @Column(DataType.STRING(100))
-  declare email: string;
-
-  @AllowNull(false)
-  @Column(DataType.STRING(100))
-  declare password: string;
-
-  @AllowNull(false)
-  @Default('user')
-  @Column(DataType.ENUM('admin', 'user'))
-  declare role: string;
+  @Column({
+    type: DataType.STRING(255),
+  })
+  password: string;
 
   @AllowNull(true)
-  @Unique
-  @Index
-  @Column(DataType.TEXT)
-  declare refreshTokenHash: string;
+  @Column({
+    type: DataType.STRING(255),
+  })
+  name: string;
 
-  @AllowNull(false)
+  @AllowNull(true)
+  @Column({
+    type: DataType.TEXT,
+  })
+  phone: string;
+
+  @AllowNull(true)
+  @Column({
+    type: DataType.TEXT,
+  })
+  whatsappNumber: string;
+
+  @AllowNull(true)
+  @Column({
+    type: DataType.STRING(100),
+  })
+  avatar: string;
+
+  @AllowNull(true)
+  @Column({
+    type: DataType.TEXT,
+  })
+  bio: string;
+
+  @Default('user')
+  @Column({
+    type: DataType.STRING(50),
+  })
+  role: string;
+
   @Default(true)
-  @Index
-  @Column(DataType.BOOLEAN)
-  declare isActive: boolean;
+  @Column({
+    type: DataType.BOOLEAN,
+  })
+  isActive: boolean;
 
-  declare createdAt: Date;
-  declare updatedAt: Date;
-  declare deletedAt: Date | null;
+  @Default(null)
+  @Column({
+    type: DataType.DATE,
+  })
+  lastLogin: Date;
+
+  @Default(0)
+  @Column({
+    type: DataType.INTEGER,
+  })
+  failedLoginAttempts: number;
+
+  @Default(null)
+  @Column({
+    type: DataType.DATE,
+  })
+  lockedUntil: Date;
 }

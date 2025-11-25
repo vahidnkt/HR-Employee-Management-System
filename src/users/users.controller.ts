@@ -1,59 +1,70 @@
 import {
   Controller,
+  Post,
   Get,
-  Patch,
-  Param,
+  Put,
+  Delete,
   Body,
+  Param,
   Query,
-  HttpCode,
-  HttpStatus,
+  UseGuards,
+  Request,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { UpdateUserDto } from './dto/update.user.dto';
-import { UserQueryDto } from './dto/user.query';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { JwtGuard } from '../common/guards/jwt.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { Public } from '../common/decorators/public.decorator';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Get('me')
-  @HttpCode(HttpStatus.OK)
-  async getProfile() {
-    // TODO: Get user from JWT token
-    // For now, return placeholder
-    return { message: 'Get profile - will implement with auth' };
-  }
-
-  @Patch('me')
-  @HttpCode(HttpStatus.OK)
-  async updateProfile(@Body() updateUserDto: UpdateUserDto) {
-    // TODO: Get user from JWT token
-    // For now, return placeholder
-    return { message: 'Update profile - will implement with auth' };
+  @Post()
+  @Public()
+  async create(@Body() createUserDto: CreateUserDto) {
+    return this.usersService.create(createUserDto);
   }
 
   @Get()
-  @HttpCode(HttpStatus.OK)
-  async findAll(@Query() query: UserQueryDto) {
-    const page = query.page || 1;
-    const take = query.limit || 10;
-    return await this.usersService.findAll(
-      page,
-      take,
-      query.search,
-      query.role,
-      query.isActive,
-    );
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles('admin')
+  async findAll(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    return this.usersService.findAll(page, limit);
+  }
+
+  @Get('me')
+  @UseGuards(JwtGuard)
+  async getProfile(@Request() req: any) {
+    const userId = req.user.sub;
+    return this.usersService.findById(userId);
   }
 
   @Get(':id')
-  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtGuard)
   async findOne(@Param('id') id: string) {
-    const user = await this.usersService.findById(id);
-    if (!user) {
-      return { message: 'User not found' };
-    }
-    const { password, refreshTokenHash, ...userData } = user.toJSON();
-    return userData;
+    return this.usersService.findById(id);
+  }
+
+  @Put(':id')
+  @UseGuards(JwtGuard)
+  async update(
+    @Param('id') id: string,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    return this.usersService.update(id, updateUserDto);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles('admin')
+  async delete(@Param('id') id: string) {
+    await this.usersService.delete(id);
+    return { message: 'User deleted successfully' };
   }
 }

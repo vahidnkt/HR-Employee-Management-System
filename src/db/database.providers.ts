@@ -1,6 +1,9 @@
 import { Sequelize } from 'sequelize-typescript';
 import { Dialect } from 'sequelize';
 import { Users } from '../users/users.entity';
+import { RefreshTokens } from '../auth/auth.entity';
+import { Schools } from '../schools/schools.entity';
+
 export const databaseProviders = [
   {
     provide: 'SEQUELIZE',
@@ -26,7 +29,7 @@ export const databaseProviders = [
           },
         },
       });
-      sequelize.addModels([Users]);
+      sequelize.addModels([Users, RefreshTokens, Schools]);
       await sequelize.sync();
       return sequelize;
     },
